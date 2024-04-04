@@ -10,7 +10,7 @@ import connect4_ai as ai
 import threading
 import json
 
-TIMEOUT = 28
+MOVE_TIMEOUT = 40
 SAFE_TIME = 2
 
 class Connect4:
@@ -87,7 +87,10 @@ class Connect4:
         self.driver.switch_to.active_element.send_keys(u'\ue007')
         
     def checkTurn(self):
-        players_board = self.driver.find_element(By.CLASS_NAME, 'players-container').find_element(By.TAG_NAME, 'div')
+        try:
+            players_board = self.driver.find_element(By.CLASS_NAME, 'players-container').find_element(By.TAG_NAME, 'div')
+        except exceptions.NoSuchElementException:
+            return
         # get direct children divs
         player_profile = players_board.find_elements(By.XPATH, "*")[self.playerindex]
         if 'progress-circle' in player_profile.get_attribute('innerHTML'):
@@ -120,9 +123,9 @@ class Connect4:
         print('Player index:', self.playerindex)
         
     def getBoard(self):
-        if not self.is_playing(1):
-            return False
         for row in range(self.num_rows):
+            if not self.is_playing(timeout=1):
+                return False
             cells = self.rows[row].find_elements(By.TAG_NAME, 'td')
             for col in range(self.num_cols):
                 # if td contains text 'circle-dark' then it's a dark piece
@@ -157,7 +160,7 @@ class Connect4:
         rows = self.driver.find_element(By.ID, 'connect4').find_elements(By.TAG_NAME,'tr')
         try:
             rows[0].find_elements(By.TAG_NAME,'td')[col].click()
-        except IndexError:
+        except TypeError:
             print(col, 'is not a valid column')
         self.gamestate += str(col)
         self.lastBoardRecorded = self.board.copy()
@@ -184,31 +187,30 @@ class Connect4:
         except exceptions.TimeoutException:
             return False
         
-    def check_time(self):
+    def check_time(self, gamestate):
         start = time.time()
-        while self.is_playing(SAFE_TIME) and self.current_turn:
-            self.checkTurn()
-            if time.time() - start > TIMEOUT - SAFE_TIME:
+        while True:
+            if len(gamestate) != len(self.gamestate):
+                break
+            if (time.time() - start) > (MOVE_TIMEOUT - SAFE_TIME):
                 col, minimax_score, depth = bot.minimax(np.flip(self.board,0), 5, -np.inf, np.inf, True, lazy_depth=True)
-                if col and (col in range(self.num_cols)):
-                    print(f'[TIME] Depth: {depth} | Score: {minimax_score} | Move#: {len(self.gamestate)} | Time: {time.time()-start}')
+                if len(gamestate) != len(self.gamestate):
+                    break
+                if (col is not None) and (col in range(self.num_cols)):
+                    print(f'[TIME] Depth: {depth} | Score: {minimax_score} | Move#: {len(gamestate)} | Time: {time.time()-start}')
                     self.play_move(col)
                 else:
-                    col = random.randint(0, self.num_cols-1)
-                    print('Timeout, played random move at column', col)
-                    self.play_move(col)
+                    print('Timeout, played random move')
+                    self.make_random_move()
                 return
-            time.sleep(0.5)
+            time.sleep(1)
         
     def run(self):
         # wait for game to start
         self.is_playing()
-        solved = False
         while self.is_playing():
             self.checkTurn()
             if self.current_turn:
-                time_check = threading.Thread(target=self.check_time)
-                time_check.start()
                 if len(self.gamestate) < 8:
                     depth = 7
                 elif len(self.gamestate) < 14:
@@ -222,21 +224,21 @@ class Connect4:
                 else:
                     depth = 17
                     
-                self.driver.execute_script("document.elementFromPoint(0, 0).click();")
+                # self.driver.execute_script("document.elementFromPoint(0, 0).click();")
                 self.getBoard()
                 start = time.time()
                 # updates depth to the actual depth used
                 curr_gamestate = self.gamestate
-                col, minimax_score, depth = bot.minimax(np.flip(self.board,0), depth, -np.inf, np.inf, True, lazy_depth=solved)
-                if minimax_score == 100000000000000 or minimax_score == -10000000000000:
-                    solved = True
-                if (len(curr_gamestate) == len(self.gamestate)) and self.is_playing(1):
-                    print(f'Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start}')
+                time_check = threading.Thread(target=self.check_time, args=(curr_gamestate,))
+                time_check.start()
+                col, minimax_score, depth = bot.minimax(np.flip(self.board,0), depth, -np.inf, np.inf, True)
+                if (col is not None) and (len(curr_gamestate) == len(self.gamestate)) and (self.is_playing(timeout=1)):
+                    print(f'Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start} | Move: {col}')
                     self.play_move(col)
                 else:
-                    print(f'[LATE] Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start}')
-                    
+                    print(f'[LATE] Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start} | Move: {col}')
                 time_check.join()
+            time.sleep(1)
         if len(self.gamestate) > 0:
             print('Gamestate:', game.gamestate)
             if minimax_score == 100000000000000:
