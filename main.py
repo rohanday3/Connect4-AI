@@ -10,7 +10,7 @@ import connect4_ai as ai
 import threading
 import json
 
-TIMEOUT = 25
+TIMEOUT = 28
 SAFE_TIME = 2
 
 class Connect4:
@@ -228,16 +228,15 @@ class Connect4:
                 # updates depth to the actual depth used
                 curr_gamestate = self.gamestate
                 col, minimax_score, depth = bot.minimax(np.flip(self.board,0), depth, -np.inf, np.inf, True, lazy_depth=solved)
-                if minimax_score == 100000000000000:
+                if minimax_score == 100000000000000 or minimax_score == -10000000000000:
                     solved = True
-                if not self.getBoard() and self.is_playing(1):
+                if (len(curr_gamestate) == len(self.gamestate)) and self.is_playing(1):
                     print(f'Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start}')
                     self.play_move(col)
                 else:
                     print(f'[LATE] Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start}')
                     
                 time_check.join()
-            time.sleep(0.5)
         if len(self.gamestate) > 0:
             print('Gamestate:', game.gamestate)
             if minimax_score == 100000000000000:
