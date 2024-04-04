@@ -10,7 +10,7 @@ import connect4_ai as ai
 import threading
 import json
 
-MOVE_TIMEOUT = 40
+MOVE_TIMEOUT = 35
 SAFE_TIME = 2
 
 class Connect4:
