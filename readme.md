@@ -24,7 +24,7 @@ It is implemented in Python and uses the Selenium WebDriver to interact with the
 1. Clone the repository:
     
     ```bash
-    git clone
+    git clone https://github.com/rohanday3/Connect4-AI
     ```
 
 2. Install the required Python packages:
