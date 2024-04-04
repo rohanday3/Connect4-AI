@@ -10,7 +10,7 @@ import connect4_ai as ai
 import threading
 import json
 
-TIMEOUT = 30
+TIMEOUT = 25
 SAFE_TIME = 2
 
 class Connect4:
@@ -120,7 +120,7 @@ class Connect4:
         print('Player index:', self.playerindex)
         
     def getBoard(self):
-        if not self.is_playing(2):
+        if not self.is_playing(1):
             return False
         for row in range(self.num_rows):
             cells = self.rows[row].find_elements(By.TAG_NAME, 'td')
@@ -186,12 +186,12 @@ class Connect4:
         
     def check_time(self):
         start = time.time()
-        col, minimax_score, depth = bot.minimax(np.flip(self.board,0), 5, -np.inf, np.inf, True, lazy_depth=True)
         while self.is_playing(SAFE_TIME) and self.current_turn:
             self.checkTurn()
             if time.time() - start > TIMEOUT - SAFE_TIME:
+                col, minimax_score, depth = bot.minimax(np.flip(self.board,0), 5, -np.inf, np.inf, True, lazy_depth=True)
                 if col and (col in range(self.num_cols)):
-                    print(f'Depth: {depth} | Score: {minimax_score} | Move#: {len(self.gamestate)} | Time: {time.time()-start}')
+                    print(f'[TIME] Depth: {depth} | Score: {minimax_score} | Move#: {len(self.gamestate)} | Time: {time.time()-start}')
                     self.play_move(col)
                 else:
                     col = random.randint(0, self.num_cols-1)
@@ -209,27 +209,36 @@ class Connect4:
             if self.current_turn:
                 time_check = threading.Thread(target=self.check_time)
                 time_check.start()
-                if len(self.gamestate) < 4:
-                    depth = 6
-                elif len(self.gamestate) < 12:
-                    depth = 10
+                if len(self.gamestate) < 8:
+                    depth = 7
+                elif len(self.gamestate) < 14:
+                    depth = 9
+                elif len(self.gamestate) < 20:
+                    depth = 11
+                elif len(self.gamestate) < 24:
+                    depth = 13
+                elif len(self.gamestate) < 28:
+                    depth = 15
                 else:
-                    depth = 14
+                    depth = 17
                     
                 self.driver.execute_script("document.elementFromPoint(0, 0).click();")
                 self.getBoard()
                 start = time.time()
                 # updates depth to the actual depth used
+                curr_gamestate = self.gamestate
                 col, minimax_score, depth = bot.minimax(np.flip(self.board,0), depth, -np.inf, np.inf, True, lazy_depth=solved)
                 if minimax_score == 100000000000000:
                     solved = True
-                if not self.getBoard() and self.is_playing(10):
-                    print(f'Depth: {depth} | Score: {minimax_score} | Move#: {len(self.gamestate)} | Time: {time.time()-start}')
+                if not self.getBoard() and self.is_playing(1):
+                    print(f'Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start}')
                     self.play_move(col)
+                else:
+                    print(f'[LATE] Depth: {depth} | Score: {minimax_score} | Move#: {len(curr_gamestate)} | Time: {time.time()-start}')
                     
                 time_check.join()
             time.sleep(0.5)
-        if len(self.gamestate) < 0:
+        if len(self.gamestate) > 0:
             print('Gamestate:', game.gamestate)
             if minimax_score == 100000000000000:
                 self.games_won += 1
